@@ -1,0 +1,5 @@
+*.iml
+.idea
+go/
+goroot/
+src/mysql-cdc
