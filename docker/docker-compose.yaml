@@ -2,21 +2,6 @@ version: '3'
 
 services:
 
-  mysql-cdc-db:
-    build:
-      context: ./
-      dockerfile: mysql/Dockerfile
-    image: mysql-binlog:5.7.29
-    container_name: mysql-cdc-db
-    ports:
-      - 3306:3306
-    networks:
-      - mysql-cdc
-    command: --default-authentication-plugin=mysql_native_password
-    environment:
-      MYSQL_ROOT_PASSWORD: admin
-    restart: unless-stopped
-
   mysql-cdc:
     build:
       context: ./
@@ -33,6 +18,7 @@ services:
       - mysql-cdc
     depends_on:
       - mysql-cdc-db
+      - mysql-cdc-kafka
     environment:
       - ENABLE_HOT_RELOAD=${ENABLE_HOT_RELOAD:-false}
       - MYSQL_HOST=${MYSQL_HOST:-mysql-cdc-db}
@@ -40,6 +26,47 @@ services:
       - MYSQL_USER=${MYSQL_USER:-root}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-admin}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-employees}
+    restart: unless-stopped
+
+  mysql-cdc-db:
+    build:
+      context: ./
+      dockerfile: mysql/Dockerfile
+    image: mysql-binlog:5.7.29
+    container_name: mysql-cdc-db
+    ports:
+      - 3306:3306
+    networks:
+      - mysql-cdc
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+    restart: unless-stopped
+    
+  mysql-cdc-kafka:
+    image: wurstmeister/kafka
+    container_name: mysql-cdc-kafka
+    ports:
+      - 9092:9092
+    depends_on:
+      - mysql-cdc-zookeeper
+    environment:
+      - KAFKA_ZOOKEEPER_CONNECT=mysql-cdc-zookeeper:2181
+      - KAFKA_LISTENERS=INSIDE://:9092,OUTSIDE://:9094
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME=INSIDE
+      - KAFKA_CREATE_TOPICS=employees:1:1
+    networks:
+      - mysql-cdc
+    restart: unless-stopped
+
+  mysql-cdc-zookeeper:
+    image: wurstmeister/zookeeper
+    container_name: mysql-cdc-zookeeper
+    ports:
+      - 2181:2181
+    networks:
+      - mysql-cdc
     restart: unless-stopped
 
 networks:
