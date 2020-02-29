@@ -1,4 +1,4 @@
-package main
+package mysqlcdc
 
 import (
 	"fmt"

@@ -27,6 +27,7 @@ services:
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-admin}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-employees}
       - KAFKA_HOST=${KAFKA_HOST:-mysql-cdc-kafka}
+      - KAFKA_PORT=${KAFKA_PORT:-9092}
     restart: unless-stopped
 
   mysql-cdc-db:

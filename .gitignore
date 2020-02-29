@@ -3,3 +3,4 @@
 go/
 goroot/
 src/mysql-cdc
+src/example/example
