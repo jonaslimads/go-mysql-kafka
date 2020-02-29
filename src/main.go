@@ -3,24 +3,37 @@ package main
 import (
 	"log"
 	"os"
+	"strconv"
 )
 
 func main() {
-	eventStreamer := NewEventStreamer(NewMySqlConfigFromEnv())
+	eventListener := NewEventListener(newMySqlConfigFromEnv())
 
-	eventStreamer.HandleStreamFunc("employees", "employees", func(event *Event) {
+	eventListener.HandleStreamFunc("employees", []string{"employees"}, func(event *Event) {
 		if event.action == UpdateAction {
-			log.Println("got employee update binlogEvent", event.table, event.action)
-			event.binlogEvent.Dump(os.Stdout)
+			log.Println("=> LOL", event.table, event.action)
+			//event.binlogEvent.Dump(os.Stdout)
 		}
 	})
 
-	eventStreamer.HandleStreamFunc("employees", "titles", func(event *Event) {
+	eventListener.HandleStreamFunc("employees", []string{"titles"}, func(event *Event) {
 		if event.action == UpdateAction {
-			log.Println("got title update binlogEvent", event.table, event.action)
-			event.binlogEvent.Dump(os.Stdout)
+			log.Println("==> HUE", event.table, event.action)
+			//event.binlogEvent.Dump(os.Stdout)
 		}
 	})
 
-	eventStreamer.run()
+	eventListener.run()
+}
+
+func newMySqlConfigFromEnv() *MySqlConfig {
+	mysqlPort, _ := strconv.Atoi(os.Getenv("MYSQL_PORT"))
+
+	return &MySqlConfig{
+		Host:     os.Getenv("MYSQL_HOST"),
+		Port:     uint16(mysqlPort),
+		User:     os.Getenv("MYSQL_USER"),
+		Password: os.Getenv("MYSQL_PASSWORD"),
+		Database: os.Getenv("MYSQL_DATABASE"),
+	}
 }

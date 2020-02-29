@@ -2,7 +2,7 @@ package main
 
 type Stream struct {
 	topic         string
-	path          string
+	tables        []string
 	streamHandler StreamHandler
 }
 
@@ -17,8 +17,8 @@ func (stream *Stream) Topic(topic string) *Stream {
 	return stream
 }
 
-func (stream *Stream) Path(path string) *Stream {
-	stream.path = path
+func (stream *Stream) Tables(tables []string) *Stream {
+	stream.tables = tables
 	return stream
 }
 
@@ -32,7 +32,12 @@ func (stream *Stream) StreamHandlerFunc(f func(*Event)) *Stream {
 }
 
 func (stream *Stream) Match(event *Event) bool {
-	return stream.path == event.table.name
+	for _, table := range stream.tables {
+		if table == event.table.name {
+			return true
+		}
+	}
+	return false
 }
 
 func (streamHandlerFunc StreamHandlerFunc) Stream(event *Event) {

@@ -17,7 +17,7 @@ var DeleteAction EventAction = canal.DeleteAction
 
 var UpdateAction EventAction = canal.UpdateAction
 
-type EventStreamer struct {
+type EventListener struct {
 	mysqlConfig *MySqlConfig
 	streams     []*Stream
 	tables      map[uint64]string
@@ -34,45 +34,45 @@ type Table struct {
 	name string
 }
 
-func NewEventStreamer(config *MySqlConfig) *EventStreamer {
-	return &EventStreamer{
+func NewEventListener(config *MySqlConfig) *EventListener {
+	return &EventListener{
 		mysqlConfig: config,
 		streams:     make([]*Stream, 0),
 		tables:      make(map[uint64]string),
 	}
 }
 
-func (eventStreamer *EventStreamer) HandleStream(topic string, path string, streamHandler StreamHandler) *Stream {
-	return eventStreamer.NewStream().Topic(topic).Path(path).StreamHandler(streamHandler)
+func (eventListener *EventListener) HandleStream(topic string, tables []string, streamHandler StreamHandler) *Stream {
+	return eventListener.NewStream().Topic(topic).Tables(tables).StreamHandler(streamHandler)
 }
 
-func (eventStreamer *EventStreamer) HandleStreamFunc(topic string, path string,
+func (eventListener *EventListener) HandleStreamFunc(topic string, tables []string,
 	f func(*Event)) *Stream {
-	return eventStreamer.NewStream().Topic(topic).Path(path).StreamHandlerFunc(f)
+	return eventListener.NewStream().Topic(topic).Tables(tables).StreamHandlerFunc(f)
 }
 
-func (eventStreamer *EventStreamer) NewStream() *Stream {
+func (eventListener *EventListener) NewStream() *Stream {
 	stream := &Stream{}
-	eventStreamer.streams = append(eventStreamer.streams, stream)
+	eventListener.streams = append(eventListener.streams, stream)
 	return stream
 }
 
-func (eventStreamer *EventStreamer) run() {
-	syncer := replication.NewBinlogSyncer(eventStreamer.mysqlConfig.toBinlogSyncerConfig())
-	streamer, _ := syncer.StartSync(getBinlogPosition(eventStreamer.mysqlConfig))
+func (eventListener *EventListener) run() {
+	syncer := replication.NewBinlogSyncer(eventListener.mysqlConfig.toBinlogSyncerConfig())
+	listener, _ := syncer.StartSync(eventListener.mysqlConfig.getBinlogPosition())
 
 	for {
-		event, _ := streamer.GetEvent(context.Background())
-		go eventStreamer.EmitEvent(event)
+		event, _ := listener.GetEvent(context.Background())
+		go eventListener.HandleEvent(event)
 	}
 }
 
 var tableRegex = regexp.MustCompile(`(?m)(?m)^(TableID|Table):\s*(\w+)`)
 
-func (eventStreamer *EventStreamer) EmitEvent(bingLogEvent *replication.BinlogEvent) {
+func (eventListener *EventListener) HandleEvent(bingLogEvent *replication.BinlogEvent) {
 	if bingLogEvent.Header.EventType == replication.TABLE_MAP_EVENT {
 		tableID, tableName := getTableIDName(bingLogEvent)
-		eventStreamer.tables[tableID] = tableName
+		eventListener.tables[tableID] = tableName
 		return
 	}
 
@@ -82,17 +82,17 @@ func (eventStreamer *EventStreamer) EmitEvent(bingLogEvent *replication.BinlogEv
 	}
 
 	tableID, _ := getTableIDName(bingLogEvent)
-	table := &Table{id: tableID, name: eventStreamer.tables[tableID]}
+	table := &Table{id: tableID, name: eventListener.tables[tableID]}
 
 	event := &Event{binlogEvent: bingLogEvent, action: action, table: table}
-	for _, stream := range eventStreamer.MatchStreams(event) {
+	for _, stream := range eventListener.MatchStreams(event) {
 		go stream.streamHandler.Stream(event)
 	}
 }
 
-func (eventStreamer *EventStreamer) MatchStreams(event *Event) []*Stream {
+func (eventListener *EventListener) MatchStreams(event *Event) []*Stream {
 	matchedStreams := make([]*Stream, 0)
-	for _, stream := range eventStreamer.streams {
+	for _, stream := range eventListener.streams {
 		if stream.Match(event) {
 			matchedStreams = append(matchedStreams, stream)
 		}

@@ -26,6 +26,7 @@ services:
       - MYSQL_USER=${MYSQL_USER:-root}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-admin}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-employees}
+      - KAFKA_HOST=${KAFKA_HOST:-mysql-cdc-kafka}
     restart: unless-stopped
 
   mysql-cdc-db:

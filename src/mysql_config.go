@@ -6,8 +6,6 @@ import (
 	"github.com/siddontang/go-mysql/mysql"
 	"github.com/siddontang/go-mysql/replication"
 	"log"
-	"os"
-	"strconv"
 )
 
 type MySqlConfig struct {
@@ -16,18 +14,6 @@ type MySqlConfig struct {
 	User     string
 	Password string
 	Database string
-}
-
-func NewMySqlConfigFromEnv() *MySqlConfig {
-	mysqlPort, _ := strconv.Atoi(os.Getenv("MYSQL_PORT"))
-
-	return &MySqlConfig{
-		Host:     os.Getenv("MYSQL_HOST"),
-		Port:     uint16(mysqlPort),
-		User:     os.Getenv("MYSQL_USER"),
-		Password: os.Getenv("MYSQL_PASSWORD"),
-		Database: os.Getenv("MYSQL_DATABASE"),
-	}
 }
 
 func (config *MySqlConfig) toBinlogSyncerConfig() replication.BinlogSyncerConfig {
@@ -41,11 +27,7 @@ func (config *MySqlConfig) toBinlogSyncerConfig() replication.BinlogSyncerConfig
 	}
 }
 
-func (config *MySqlConfig) getAddress() string {
-	return fmt.Sprintf("%s:%d", config.Host, config.Port)
-}
-
-func getBinlogPosition(config *MySqlConfig) mysql.Position {
+func (config *MySqlConfig) getBinlogPosition() mysql.Position {
 	conn, err := client.Connect(config.getAddress(), config.User, config.Password, config.Database)
 	if err != nil {
 		log.Panic(err)
@@ -56,4 +38,8 @@ func getBinlogPosition(config *MySqlConfig) mysql.Position {
 	position, _ := row.GetIntByName(0, "Position")
 
 	return mysql.Position{Name: fileName, Pos: uint32(position)}
+}
+
+func (config *MySqlConfig) getAddress() string {
+	return fmt.Sprintf("%s:%d", config.Host, config.Port)
 }
