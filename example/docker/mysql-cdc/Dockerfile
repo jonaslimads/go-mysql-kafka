@@ -24,7 +24,7 @@ VOLUME $GOPATH
 
 VOLUME $GOROOT
 
-WORKDIR $GOSRC
+WORKDIR $GOSRC/example
 
 COPY mysql-cdc/*.sh /tmp/
 

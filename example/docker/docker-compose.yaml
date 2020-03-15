@@ -13,7 +13,7 @@ services:
     volumes:
       - ../go:/var/mysql-cdc/go
       - ../goroot:/var/mysql-cdc/goroot
-      - ../src:/var/mysql-cdc/src
+      - ../../:/var/mysql-cdc/src
     networks:
       - mysql-cdc
     depends_on:

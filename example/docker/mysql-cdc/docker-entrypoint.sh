@@ -9,16 +9,14 @@ main() {
 
   install_mod
 
-  tail -F anything
-
-#  if [[ "$ENABLE_HOT_RELOAD" = true ]]; then
-#    echo -e "Starting chat service. Hot reloading is enabled"
-#    CompileDaemon -log-prefix=false -build="go build" -command="./chat-service"
-#  else
-#    echo -e "Starting chat service. Hot reloading is disabled, any change made in the code wil require this container to be run again. \nYou can also manually stop chat service process, build and run it."
-##    go build && ./chat-service
-#    tail -F anything
-#  fi
+  if [[ "$ENABLE_HOT_RELOAD" = true ]]; then
+    echo -e "Starting MySQL Change Data Capture. Hot reloading is enabled"
+    CompileDaemon -log-prefix=false -build="go build" -command="./example"
+  else
+    echo -e "Starting MySQL Change Data Capture. Hot reloading is disabled, any change made in the code wil require this container to be run again. \nYou can also manually stop MySQL Change Data Capture process, build and run it."
+    go build
+    ./example
+  fi
 }
 
 install_go() {
