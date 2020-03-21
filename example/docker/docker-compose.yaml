@@ -2,74 +2,74 @@ version: '3'
 
 services:
 
-  mysql-cdc:
+  go-mysql-kafka:
     build:
       context: ./
-      dockerfile: mysql-cdc/Dockerfile
-    image: mysql-cdc:0.0.1
-    container_name: mysql-cdc
+      dockerfile: go-mysql-kafka/Dockerfile
+    image: go-mysql-kafka:0.0.1
+    container_name: go-mysql-kafka
     ports:
       - 8087:8080
     volumes:
-      - ../go:/var/mysql-cdc/go
-      - ../goroot:/var/mysql-cdc/goroot
-      - ../../:/var/mysql-cdc/src
+      - ../go:/var/go-mysql-kafka/go
+      - ../goroot:/var/go-mysql-kafka/goroot
+      - ../../:/var/go-mysql-kafka/src
     networks:
-      - mysql-cdc
+      - go-mysql-kafka
     depends_on:
-      - mysql-cdc-db
-      - mysql-cdc-kafka
+      - go-mysql-kafka-db
+      - go-mysql-kafka-broker
     environment:
-      - ENABLE_HOT_RELOAD=${ENABLE_HOT_RELOAD:-false}
-      - MYSQL_HOST=${MYSQL_HOST:-mysql-cdc-db}
+      - ENABLE_HOT_RELOAD=${ENABLE_HOT_RELOAD:-true}
+      - MYSQL_HOST=${MYSQL_HOST:-go-mysql-kafka-db}
       - MYSQL_PORT=${MYSQL_PORT:-3306}
       - MYSQL_USER=${MYSQL_USER:-root}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-admin}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-employees}
-      - KAFKA_HOST=${KAFKA_HOST:-mysql-cdc-kafka}
+      - KAFKA_HOST=${KAFKA_HOST:-go-mysql-kafka-broker}
       - KAFKA_PORT=${KAFKA_PORT:-9092}
     restart: unless-stopped
 
-  mysql-cdc-db:
+  go-mysql-kafka-db:
     build:
       context: ./
       dockerfile: mysql/Dockerfile
     image: mysql-binlog:5.7.29
-    container_name: mysql-cdc-db
+    container_name: go-mysql-kafka-db
     ports:
       - 3306:3306
     networks:
-      - mysql-cdc
+      - go-mysql-kafka
     command: --default-authentication-plugin=mysql_native_password
     environment:
       MYSQL_ROOT_PASSWORD: admin
     restart: unless-stopped
     
-  mysql-cdc-kafka:
+  go-mysql-kafka-broker:
     image: wurstmeister/kafka
-    container_name: mysql-cdc-kafka
+    container_name: go-mysql-kafka-broker
     ports:
       - 9092:9092
     depends_on:
-      - mysql-cdc-zookeeper
+      - go-mysql-kafka-zookeeper
     environment:
-      - KAFKA_ZOOKEEPER_CONNECT=mysql-cdc-zookeeper:2181
+      - KAFKA_ZOOKEEPER_CONNECT=go-mysql-kafka-zookeeper:2181
       - KAFKA_LISTENERS=INSIDE://:9092,OUTSIDE://:9094
       - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
       - KAFKA_INTER_BROKER_LISTENER_NAME=INSIDE
       - KAFKA_CREATE_TOPICS=employees:1:1
     networks:
-      - mysql-cdc
+      - go-mysql-kafka
     restart: unless-stopped
 
-  mysql-cdc-zookeeper:
+  go-mysql-kafka-zookeeper:
     image: wurstmeister/zookeeper
-    container_name: mysql-cdc-zookeeper
+    container_name: go-mysql-kafka-zookeeper
     ports:
       - 2181:2181
     networks:
-      - mysql-cdc
+      - go-mysql-kafka
     restart: unless-stopped
 
 networks:
-  mysql-cdc:
+  go-mysql-kafka:

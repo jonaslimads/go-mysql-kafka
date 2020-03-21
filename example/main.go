@@ -1,7 +1,7 @@
 package main
 
 import (
-	kafka "github.com/jonaslimads/mysql-cdc"
+	kafka "github.com/jonaslimads/go-mysql-kafka"
 	"github.com/siddontang/go-mysql/canal"
 	"log"
 	"os"
@@ -11,7 +11,7 @@ import (
 func main() {
 	eventHandler := kafka.NewEventHandler(newMySqlConfigFromEnv(), newKafkaStreamer())
 
-	eventHandler.HandleChannelFunc("employees", []string{"employees", "titles"}, func(
+	eventHandler.HandleChannelFunc("employees", []string{"employees", "titles", "salaries"}, func(
 		streamer kafka.EventStreamer, event *canal.RowsEvent) {
 		if err := streamer.Stream("employees", event); err != nil {
 			log.Println(err)

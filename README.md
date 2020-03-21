@@ -1,13 +1,4 @@
-## Kafka utilities:
+# go-mysql-kafka
 
-### Connect producer:
-```
-docker exec -it mysql-cdc-kafka bash -c \
-    'kafka-console-producer.sh --broker-list mysql-cdc-kafka:9092 --topic employees'
-```
+Simple MySQL Change Data Capture that streams changes to Kafka. Built with https://github.com/siddontang/go-mysql.
 
-### Connect consumer:
-```
-docker exec -it mysql-cdc-kafka bash -c \
-    'kafka-console-consumer.sh --bootstrap-server mysql-cdc-kafka:9092 --topic employees --from-beginning --partition 0'
-```

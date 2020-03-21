@@ -12,9 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 	&& rm -rf /var/lib/apt/lists/*
 
 ENV GOLANG_VERSION=1.14 \
-    GOROOT=/var/mysql-cdc/goroot \
-    GOPATH=/var/mysql-cdc/go \
-    GOSRC=/var/mysql-cdc/src \
+    GOROOT=/var/go-mysql-kafka/goroot \
+    GOPATH=/var/go-mysql-kafka/go \
+    GOSRC=/var/go-mysql-kafka/src \
     GO111MODULE=on \
     ENABLE_HOT_RELOAD=false
 
@@ -26,7 +26,7 @@ VOLUME $GOROOT
 
 WORKDIR $GOSRC/example
 
-COPY mysql-cdc/*.sh /tmp/
+COPY go-mysql-kafka/*.sh /tmp/
 
 RUN mv -f /tmp/*.sh /usr/local/bin/ \
     && chmod +x /usr/local/bin/*

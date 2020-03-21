@@ -1,4 +1,4 @@
-module github.com/jonaslimads/mysql-cdc
+module github.com/jonaslimads/go-mysql-kafka
 
 go 1.14
 
