@@ -14,8 +14,9 @@ main() {
     CompileDaemon -log-prefix=false -build="go build" -command="./example"
   else
     echo -e "Starting MySQL Change Data Capture. Hot reloading is disabled, any change made in the code wil require this container to be run again. \nYou can also manually stop MySQL Change Data Capture process, build and run it."
-    go build
-    ./example
+    tail -F everythin
+#    go build
+#    ./example
   fi
 }
 

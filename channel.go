@@ -1,4 +1,6 @@
-package mysqlcdc
+package kafka
+
+import "github.com/siddontang/go-mysql/canal"
 
 type Channel struct {
 	topic   string
@@ -7,10 +9,10 @@ type Channel struct {
 }
 
 type ChannelHandler interface {
-	HandleEvent(EventStreamer, *Event)
+	HandleEvent(EventStreamer, *canal.RowsEvent)
 }
 
-type ChannelHandlerFunc func(EventStreamer, *Event)
+type ChannelHandlerFunc func(EventStreamer, *canal.RowsEvent)
 
 func (channel *Channel) Topic(topic string) *Channel {
 	channel.topic = topic
@@ -27,19 +29,19 @@ func (channel *Channel) ChannelHandler(handler ChannelHandler) *Channel {
 	return channel
 }
 
-func (channel *Channel) ChannelHandlerFunc(f func(EventStreamer, *Event)) *Channel {
+func (channel *Channel) ChannelHandlerFunc(f func(EventStreamer, *canal.RowsEvent)) *Channel {
 	return channel.ChannelHandler(ChannelHandlerFunc(f))
 }
 
-func (channel *Channel) Match(event *Event) bool {
+func (channel *Channel) Match(event *canal.RowsEvent) bool {
 	for _, table := range channel.tables {
-		if table == event.Table.name {
+		if table == event.Table.Name {
 			return true
 		}
 	}
 	return false
 }
 
-func (f ChannelHandlerFunc) HandleEvent(sender EventStreamer, event *Event) {
+func (f ChannelHandlerFunc) HandleEvent(sender EventStreamer, event *canal.RowsEvent) {
 	f(sender, event)
 }

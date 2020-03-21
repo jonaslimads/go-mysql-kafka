@@ -1,11 +1,11 @@
 package kafka
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	mysqlcdc "github.com/jonaslimads/mysql-cdc"
 	kafkago "github.com/segmentio/kafka-go"
+	"github.com/siddontang/go-mysql/canal"
 	"time"
 )
 
@@ -21,15 +21,18 @@ func NewStreamer(host string, port uint16) Streamer {
 	}
 }
 
-// todo add custom data converter
-func (streamer Streamer) Stream(topic string, event *mysqlcdc.Event) error {
-	buf := new(bytes.Buffer)
-	event.BinlogEvent.Dump(buf)
+// todo lower case keys from event
+func (streamer Streamer) Stream(topic string, event *canal.RowsEvent) error {
+	key := fmt.Sprintf("%s-%s-%d", event.Table.String(), event.Action, event.Header.Timestamp)
+	value, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
 
 	message := kafkago.Message{
 		Topic: topic,
-		Key:   []byte("find_a_key"), // todo finish this
-		Value: buf.Bytes(),
+		Key:   []byte(key),
+		Value: value,
 		Time:  time.Time{},
 	}
 	return streamer.getWriter(topic).WriteMessages(context.Background(), message)

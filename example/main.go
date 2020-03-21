@@ -1,32 +1,30 @@
 package main
 
 import (
-	mysqlcdc "github.com/jonaslimads/mysql-cdc"
-	"github.com/jonaslimads/mysql-cdc/kafka"
+	kafka "github.com/jonaslimads/mysql-cdc"
+	"github.com/siddontang/go-mysql/canal"
 	"log"
 	"os"
 	"strconv"
 )
 
 func main() {
-	eventListener := mysqlcdc.NewEventListener(newMySqlConfigFromEnv(), newKafkaStreamer())
+	eventHandler := kafka.NewEventHandler(newMySqlConfigFromEnv(), newKafkaStreamer())
 
-	eventListener.HandleChannelFunc("employees", []string{"employees", "titles"}, func(
-		streamer mysqlcdc.EventStreamer, event *mysqlcdc.Event) {
-		if event.IsUpdate() {
-			if err := streamer.Stream("employees", event); err != nil {
-				log.Println(err)
-			}
+	eventHandler.HandleChannelFunc("employees", []string{"employees", "titles"}, func(
+		streamer kafka.EventStreamer, event *canal.RowsEvent) {
+		if err := streamer.Stream("employees", event); err != nil {
+			log.Println(err)
 		}
 	})
 
-	eventListener.Listen()
+	eventHandler.Run()
 }
 
-func newMySqlConfigFromEnv() mysqlcdc.MySqlConfig {
+func newMySqlConfigFromEnv() kafka.MySqlConfig {
 	mysqlPort, _ := strconv.Atoi(os.Getenv("MYSQL_PORT"))
 
-	return mysqlcdc.MySqlConfig{
+	return kafka.MySqlConfig{
 		Host:     os.Getenv("MYSQL_HOST"),
 		Port:     uint16(mysqlPort),
 		User:     os.Getenv("MYSQL_USER"),
@@ -35,7 +33,7 @@ func newMySqlConfigFromEnv() mysqlcdc.MySqlConfig {
 	}
 }
 
-func newKafkaStreamer() mysqlcdc.EventStreamer {
+func newKafkaStreamer() kafka.EventStreamer {
 	kafkaPort, _ := strconv.Atoi(os.Getenv("KAFKA_PORT"))
 	return kafka.NewStreamer(os.Getenv("KAFKA_HOST"), uint16(kafkaPort))
 }

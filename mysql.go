@@ -1,10 +1,10 @@
-package mysqlcdc
+package kafka
 
 import (
 	"fmt"
+	"github.com/siddontang/go-mysql/canal"
 	"github.com/siddontang/go-mysql/client"
 	"github.com/siddontang/go-mysql/mysql"
-	"github.com/siddontang/go-mysql/replication"
 	"log"
 )
 
@@ -14,20 +14,21 @@ type MySqlConfig struct {
 	User     string
 	Password string
 	Database string
+	Tables   []string
 }
 
-func (config *MySqlConfig) toBinlogSyncerConfig() replication.BinlogSyncerConfig {
-	return replication.BinlogSyncerConfig{
-		ServerID: 1,
-		Flavor:   "mysql",
-		Host:     config.Host,
-		Port:     config.Port,
-		User:     config.User,
-		Password: config.Password,
-	}
+func (config *MySqlConfig) GetCanalConfig() *canal.Config {
+	cfg := canal.NewDefaultConfig()
+	cfg.Addr = config.getAddress()
+	cfg.User = config.User
+	cfg.Password = config.Password
+	cfg.Dump.ExecutionPath = ""
+	cfg.Dump.TableDB = config.Database
+	cfg.Dump.Tables = []string{"employees", "titles"}
+	return cfg
 }
 
-func (config *MySqlConfig) getBinlogPosition() mysql.Position {
+func (config *MySqlConfig) GetBinlogPosition() mysql.Position {
 	conn, err := client.Connect(config.getAddress(), config.User, config.Password, config.Database)
 	if err != nil {
 		log.Panic(err)

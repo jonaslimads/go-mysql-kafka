@@ -1,103 +1,55 @@
-package mysqlcdc
+package kafka
 
 import (
-	"bytes"
-	"context"
 	"github.com/siddontang/go-mysql/canal"
+	"github.com/siddontang/go-mysql/mysql"
 	"github.com/siddontang/go-mysql/replication"
-	"regexp"
-	"strconv"
+	"log"
 )
 
-type EventListener struct {
+type EventHandler struct {
 	config   MySqlConfig
 	streamer EventStreamer
 	channels []*Channel
-	tables   map[uint64]string
 }
 
 type EventStreamer interface {
-	Stream(topic string, event *Event) error
+	Stream(topic string, event *canal.RowsEvent) error
 }
 
-type Event struct {
-	BinlogEvent *replication.BinlogEvent
-	Action      EventAction
-	Table       *Table
-}
-
-type Table struct {
-	id   uint64
-	name string
-}
-
-type EventAction string
-
-var InsertAction EventAction = canal.InsertAction
-
-var DeleteAction EventAction = canal.DeleteAction
-
-var UpdateAction EventAction = canal.UpdateAction
-
-func NewEventListener(config MySqlConfig, streamer EventStreamer) *EventListener {
-	return &EventListener{
+func NewEventHandler(config MySqlConfig, streamer EventStreamer) *EventHandler {
+	return &EventHandler{
 		config:   config,
-		channels: make([]*Channel, 0),
-		tables:   make(map[uint64]string),
 		streamer: streamer,
+		channels: make([]*Channel, 0),
 	}
 }
 
-func (eventListener *EventListener) HandleChannel(topic string, tables []string, streamHandler ChannelHandler) *Channel {
-	return eventListener.NewChannel().Topic(topic).Tables(tables).ChannelHandler(streamHandler)
+func (handler *EventHandler) HandleChannel(topic string, tables []string, streamHandler ChannelHandler) *Channel {
+	return handler.NewChannel().Topic(topic).Tables(tables).ChannelHandler(streamHandler)
 }
 
-func (eventListener *EventListener) HandleChannelFunc(topic string, tables []string,
-	f func(EventStreamer, *Event)) *Channel {
-	return eventListener.NewChannel().Topic(topic).Tables(tables).ChannelHandlerFunc(f)
+func (handler *EventHandler) HandleChannelFunc(topic string, tables []string,
+	f func(EventStreamer, *canal.RowsEvent)) *Channel {
+	return handler.NewChannel().Topic(topic).Tables(tables).ChannelHandlerFunc(f)
 }
 
-func (eventListener *EventListener) NewChannel() *Channel {
+func (handler *EventHandler) NewChannel() *Channel {
 	channel := &Channel{}
-	eventListener.channels = append(eventListener.channels, channel)
+	handler.channels = append(handler.channels, channel)
 	return channel
 }
 
-func (eventListener *EventListener) Listen() {
-	syncer := replication.NewBinlogSyncer(eventListener.config.toBinlogSyncerConfig())
-	listener, _ := syncer.StartSync(eventListener.config.getBinlogPosition())
-
-	for {
-		event, _ := listener.GetEvent(context.Background())
-		go eventListener.HandleEvent(event)
+func (handler *EventHandler) OnRow(event *canal.RowsEvent) error {
+	for _, channel := range handler.MatchChannels(event) {
+		go channel.handler.HandleEvent(handler.streamer, event)
 	}
+	return nil
 }
 
-var tableRegex = regexp.MustCompile(`(?m)(?m)^(TableID|Table):\s*(\w+)`)
-
-func (eventListener *EventListener) HandleEvent(bingLogEvent *replication.BinlogEvent) {
-	if bingLogEvent.Header.EventType == replication.TABLE_MAP_EVENT {
-		tableID, tableName := getTableIDName(bingLogEvent)
-		eventListener.tables[tableID] = tableName
-		return
-	}
-
-	action := getEventAction(bingLogEvent)
-	if action == "" {
-		return
-	}
-
-	tableID, _ := getTableIDName(bingLogEvent)
-	table := &Table{id: tableID, name: eventListener.tables[tableID]}
-	event := &Event{BinlogEvent: bingLogEvent, Action: action, Table: table}
-	for _, channel := range eventListener.MatchChannels(event) {
-		go channel.handler.HandleEvent(eventListener.streamer, event)
-	}
-}
-
-func (eventListener *EventListener) MatchChannels(event *Event) []*Channel {
+func (handler *EventHandler) MatchChannels(event *canal.RowsEvent) []*Channel {
 	matchedChannels := make([]*Channel, 0)
-	for _, channel := range eventListener.channels {
+	for _, channel := range handler.channels {
 		if channel.Match(event) {
 			matchedChannels = append(matchedChannels, channel)
 		}
@@ -105,43 +57,55 @@ func (eventListener *EventListener) MatchChannels(event *Event) []*Channel {
 	return matchedChannels
 }
 
-func (event *Event) IsInsert() bool {
-	return event.Action == InsertAction
+func (handler *EventHandler) String() string {
+	return "EventHandler"
 }
 
-func (event *Event) IsUpdate() bool {
-	return event.Action == UpdateAction
-}
+func (handler *EventHandler) Run() {
+	handler.config.Tables = handler.getTables()
 
-func (event *Event) IsDelete() bool {
-	return event.Action == DeleteAction
-}
-
-func getTableIDName(binlogEvent *replication.BinlogEvent) (uint64, string) {
-	tableID := -1
-	tableName := ""
-
-	buf := new(bytes.Buffer)
-	binlogEvent.Dump(buf)
-
-	for _, match := range tableRegex.FindAllStringSubmatch(buf.String(), -1) {
-		if match[1] == "TableID" {
-			tableID, _ = strconv.Atoi(match[2])
-		} else if match[1] == "Table" {
-			tableName = match[2]
-		}
+	c, err := canal.NewCanal(handler.config.GetCanalConfig())
+	if err != nil {
+		log.Panic(err)
 	}
-	return uint64(tableID), tableName
+
+	c.SetEventHandler(handler)
+	err = c.RunFrom(handler.config.GetBinlogPosition())
+	if err != nil {
+		log.Panic(err)
+	}
 }
 
-func getEventAction(binlogEvent *replication.BinlogEvent) EventAction {
-	switch binlogEvent.Header.EventType {
-	case replication.WRITE_ROWS_EVENTv1, replication.WRITE_ROWS_EVENTv2:
-		return InsertAction
-	case replication.DELETE_ROWS_EVENTv1, replication.DELETE_ROWS_EVENTv2:
-		return DeleteAction
-	case replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
-		return UpdateAction
+func (handler *EventHandler) getTables() []string {
+	var tables []string
+	for _, channel := range handler.channels {
+		tables = append(tables, channel.tables...)
 	}
-	return ""
+	return tables
+}
+
+// methods to meet EventHandler interface
+
+func (handler *EventHandler) OnRotate(*replication.RotateEvent) error {
+	return nil
+}
+
+func (handler *EventHandler) OnTableChanged(string, string) error {
+	return nil
+}
+
+func (handler *EventHandler) OnDDL(mysql.Position, *replication.QueryEvent) error {
+	return nil
+}
+
+func (handler *EventHandler) OnXID(mysql.Position) error {
+	return nil
+}
+
+func (handler *EventHandler) OnGTID(mysql.GTIDSet) error {
+	return nil
+}
+
+func (handler *EventHandler) OnPosSynced(mysql.Position, mysql.GTIDSet, bool) error {
+	return nil
 }
