@@ -1,6 +1,6 @@
 # Example
 
-This example uses a testing database found in https://github.com/datacharmer/test_db
+This example uses a test database found in https://github.com/datacharmer/test_db
 
 ## Running the example
 
@@ -40,4 +40,5 @@ This will be listened by the Kafka consumer resulting in something like:
 ```
 
 An update entry to **departments** table won't be streamed to Kafka because no handler was added for this table.
-You have to explicitly tell which tables will stream to which Kafka topics. See main.go for full implementation.  
+You have to explicitly tell which tables will stream to which Kafka topics.
+See [main.go](https://github.com/jonaslimads/go-mysql-kafka/blob/master/example/main.go) for full implementation.
